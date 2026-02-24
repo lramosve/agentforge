@@ -175,6 +175,15 @@ async def run_agent(
     ghostfolio_token: str | None = None,
 ) -> dict:
     """Run the agent graph and return the response."""
+    if not message or not message.strip():
+        return {
+            "response": "It looks like you sent an empty message. How can I help you with your portfolio today?",
+            "conversation_id": conversation_id or str(uuid.uuid4()),
+            "tools_used": [],
+            "confidence": 0.0,
+            "metrics": AgentMetrics(task_id=f"chat_{int(time.time())}").to_dict(),
+        }
+
     conversation_id = conversation_id or str(uuid.uuid4())
     history = _conversations.get(conversation_id, [])
     history.append(HumanMessage(content=message))

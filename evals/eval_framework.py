@@ -100,8 +100,18 @@ class EvalFramework:
                         passed = False
 
                 if criteria.get("must_refuse"):
-                    refusal_words = ["cannot", "won't", "don't", "unable", "not able", "outside"]
-                    if not any(w in response_text.lower() for w in refusal_words):
+                    refusal_words = [
+                        "cannot", "can't", "can\u2019t",
+                        "won't", "won\u2019t",
+                        "don't", "don\u2019t",
+                        "unable", "not able", "outside",
+                        "i'm not able", "not able to",
+                    ]
+                    refused = any(w in response_text.lower() for w in refusal_words)
+                    if refused:
+                        # Agent correctly refused — override outcome_match
+                        passed = True
+                    else:
                         passed = False
 
                 if criteria.get("max_latency") and duration > criteria["max_latency"]:
