@@ -42,9 +42,9 @@ class GhostfolioClient:
     async def get_portfolio_performance(
         self, date_range: str = "max"
     ) -> dict:
-        """GET /api/v1/portfolio/performance"""
+        """GET /api/v2/portfolio/performance"""
         return await self._get(
-            "/v1/portfolio/performance", params={"range": date_range}
+            "/v2/portfolio/performance", params={"range": date_range}
         )
 
     async def get_portfolio_dividends(
