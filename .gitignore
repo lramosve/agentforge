@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Node / Widget
+node_modules/
+widget/dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Eval results (keep datasets, ignore run outputs)
+evals/results/*.json
+evals/results/*.csv
+!evals/results/.gitkeep
+
+# Observability
+observability/*.log
+
+# Coverage
+htmlcov/
+.coverage
+coverage/
