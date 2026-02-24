@@ -28,6 +28,8 @@ class AgentState(TypedDict):
     verification_passed: bool
     query_type: str
     metrics: dict
+    total_input_tokens: int
+    total_output_tokens: int
 
 
 # Initialize LLM with tool binding
@@ -76,10 +78,17 @@ def call_model(state: AgentState) -> AgentState:
     messages = [SystemMessage(content=SYSTEM_PROMPT)] + state["messages"]
     response = llm_with_tools.invoke(messages)
 
+    # Accumulate token usage from response metadata
+    usage = response.response_metadata.get("usage", {})
+    prev_input = state.get("total_input_tokens", 0)
+    prev_output = state.get("total_output_tokens", 0)
+
     return {
         **state,
         "messages": [response],
         "iterations": iterations + 1,
+        "total_input_tokens": prev_input + usage.get("input_tokens", 0),
+        "total_output_tokens": prev_output + usage.get("output_tokens", 0),
     }
 
 
@@ -198,6 +207,8 @@ async def run_agent(
         "verification_passed": False,
         "query_type": "general",
         "metrics": {},
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
     }
 
     # Run the graph
@@ -219,10 +230,20 @@ async def run_agent(
         if isinstance(msg, AIMessage) and msg.tool_calls:
             tools_used.extend(tc["name"] for tc in msg.tool_calls)
 
+    # Populate token usage and cost from accumulated state
+    input_tokens = final_state.get("total_input_tokens", 0)
+    output_tokens = final_state.get("total_output_tokens", 0)
+    # Pricing: Claude Sonnet 4.6 — $3/M input, $15/M output
+    cost = (input_tokens * 3.0 + output_tokens * 15.0) / 1_000_000
+
     metrics.success = True
     metrics.end_time = time.time()
     metrics.tools_called = tools_used
     metrics.iterations = final_state.get("iterations", 0)
+    metrics.input_tokens = input_tokens
+    metrics.output_tokens = output_tokens
+    metrics.total_tokens = input_tokens + output_tokens
+    metrics.total_cost_usd = cost
 
     # Trace to Langfuse
     trace_agent_run(

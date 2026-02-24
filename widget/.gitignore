@@ -1,0 +1,23 @@
+# Dependencies
+/node_modules
+
+# Build output
+/dist
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Angular cache
+/.angular
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment (keep templates, ignore overrides)
+src/environments/environment.local.ts
+
+.vercel

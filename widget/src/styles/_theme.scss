@@ -1,0 +1,19 @@
+@mixin theme-aware($property, $light-value, $dark-value) {
+  #{$property}: $light-value;
+
+  :host-context(.theme-dark) & {
+    #{$property}: $dark-value;
+  }
+}
+
+@mixin dark-only {
+  :host-context(.theme-dark) & {
+    @content;
+  }
+}
+
+@mixin light-only {
+  :host-context(:not(.theme-dark)) & {
+    @content;
+  }
+}

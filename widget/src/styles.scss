@@ -1,0 +1,39 @@
+@use 'styles/variables';
+@use 'styles/animations';
+@use 'styles/markdown';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--af-font-family);
+  font-size: 15px;
+  color: var(--af-text-primary);
+  background: var(--af-bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color var(--af-transition), color var(--af-transition);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--af-border);
+  border-radius: 3px;
+
+  &:hover {
+    background: var(--af-text-muted);
+  }
+}
