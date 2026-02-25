@@ -6,13 +6,15 @@ import {
   input,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ToolSelectorComponent } from '../tool-selector/tool-selector.component';
 
 @Component({
   selector: 'af-chat-input',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, ToolSelectorComponent],
   template: `
     <div class="input-wrapper">
+      <af-tool-selector />
       <textarea
         #textarea
         class="chat-textarea"

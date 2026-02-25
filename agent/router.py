@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from agent.graph import run_agent
+from agent.tools import ALL_TOOLS
 
 router = APIRouter()
 
@@ -36,6 +37,24 @@ async def chat(request: ChatRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class ToolInfo(BaseModel):
+    name: str
+    description: str
+
+
+class ToolsResponse(BaseModel):
+    tools: list[ToolInfo]
+
+
+@router.get("/tools", response_model=ToolsResponse)
+async def list_tools():
+    """Return all available agent tools with their names and descriptions."""
+    tools = [
+        ToolInfo(name=t.name, description=t.description) for t in ALL_TOOLS
+    ]
+    return ToolsResponse(tools=tools)
 
 
 @router.get("/health")

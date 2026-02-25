@@ -6,6 +6,8 @@ import {
   ChatRequest,
   ChatResponse,
   HealthResponse,
+  ToolInfo,
+  ToolsResponse,
 } from '../models/chat.models';
 import { environment } from '../../environments/environment';
 
@@ -13,16 +15,36 @@ import { environment } from '../../environments/environment';
 export class AgentService {
   private readonly apiUrl = environment.apiUrl;
 
+  private readonly toolPromptMap: Record<string, string> = {
+    portfolio_analysis:
+      'Analyze my portfolio holdings and allocation breakdown',
+    portfolio_performance:
+      'Show my portfolio performance and returns over time',
+    market_data_lookup:
+      'Look up current market data for my top holdings',
+    transaction_history:
+      'Show my recent transaction history',
+    tax_estimate:
+      'Estimate my tax liability from portfolio gains',
+    compliance_check:
+      'Run a compliance check on my portfolio',
+    benchmark_comparison:
+      'Compare my portfolio performance against common benchmarks',
+  };
+
   readonly messages = signal<ChatMessage[]>([]);
   readonly conversationId = signal<string | null>(null);
   readonly isLoading = signal(false);
   readonly isConnected = signal(false);
   readonly error = signal<string | null>(null);
+  readonly tools = signal<ToolInfo[]>([]);
+  readonly toolsLoaded = signal(false);
 
   readonly hasMessages = computed(() => this.messages().length > 0);
 
   constructor(private readonly http: HttpClient) {
     this.checkHealth();
+    this.loadTools();
   }
 
   checkHealth(): void {
@@ -103,6 +125,29 @@ export class AgentService {
           );
         }
       });
+  }
+
+  loadTools(): void {
+    this.http
+      .get<ToolsResponse>(`${this.apiUrl}/api/agent/tools`)
+      .pipe(
+        catchError(() => {
+          this.toolsLoaded.set(false);
+          return of(null);
+        })
+      )
+      .subscribe((res) => {
+        if (res?.tools) {
+          this.tools.set(res.tools);
+          this.toolsLoaded.set(true);
+        }
+      });
+  }
+
+  sendToolPrompt(toolName: string): void {
+    const prompt =
+      this.toolPromptMap[toolName] ?? `Use the ${toolName} tool`;
+    this.sendMessage(prompt);
   }
 
   clearConversation(): void {

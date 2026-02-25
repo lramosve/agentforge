@@ -40,3 +40,12 @@ export interface HealthResponse {
   status: string;
   agent: string;
 }
+
+export interface ToolInfo {
+  name: string;
+  description: string;
+}
+
+export interface ToolsResponse {
+  tools: ToolInfo[];
+}
