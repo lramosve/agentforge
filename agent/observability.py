@@ -16,7 +16,7 @@ def _get_langfuse():
 
     public_key = os.getenv("LANGFUSE_PUBLIC_KEY", "")
     secret_key = os.getenv("LANGFUSE_SECRET_KEY", "")
-    host = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+    host = os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com")
 
     if not public_key or not secret_key:
         logger.warning("Langfuse keys not configured — observability disabled")
@@ -53,9 +53,8 @@ def trace_agent_run(
         return
 
     try:
-        trace = client.trace(
+        span = client.start_span(
             name="agentforge-chat",
-            session_id=conversation_id,
             input=input_message,
             output=output_message,
             metadata={
@@ -65,26 +64,28 @@ def trace_agent_run(
                 "duration_seconds": metrics.get("duration_seconds", 0),
             },
         )
+        span.update_trace(session_id=conversation_id)
 
-        # Add cost/token observation
-        trace.generation(
+        # Add cost/token generation observation
+        total_tokens = metrics.get("total_tokens", 0)
+        gen = span.start_generation(
             name="agent-response",
             model=os.getenv("AGENT_MODEL", "claude-sonnet-4-6"),
             input=input_message,
             output=output_message,
-            metadata={
-                "total_tokens": metrics.get("total_tokens", 0),
-                "cost_usd": metrics.get("total_cost_usd", 0),
-            },
+            usage_details={"total": total_tokens} if total_tokens else None,
+            cost_details={"total": metrics.get("total_cost_usd", 0)},
         )
+        gen.end()
 
         # Score the trace with confidence
-        trace.score(
+        span.score_trace(
             name="confidence",
             value=confidence,
             comment=f"Tools: {', '.join(tools_used) or 'none'}",
         )
 
+        span.end()
         client.flush()
     except Exception as e:
         logger.warning(f"Failed to log trace to Langfuse: {e}")
@@ -102,7 +103,7 @@ def score_trace(
         return
 
     try:
-        client.score(
+        client.create_score(
             trace_id=trace_id,
             name=score_name,
             value=value,
