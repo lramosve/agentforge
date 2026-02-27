@@ -60,11 +60,11 @@ import { AgentService } from '../../services/agent.service';
       display: flex;
       flex-direction: column;
       height: 100%;
-      overflow: hidden;
     }
 
     .messages {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
       padding: 16px;
       display: flex;
