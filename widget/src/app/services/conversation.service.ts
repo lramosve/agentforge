@@ -68,7 +68,21 @@ export class ConversationService {
   }
 
   createConversation(): void {
-    this.saveCurrentConversation();
+    // If there are existing messages but no active conversation, save them first
+    const currentMessages = this.agent.messages().filter((m) => !m.loading);
+    if (!this.activeConversationId() && currentMessages.length > 0) {
+      const existing: Conversation = {
+        id: crypto.randomUUID(),
+        title: this.generateTitle(currentMessages),
+        messages: currentMessages,
+        conversationId: this.agent.conversationId(),
+        createdAt: currentMessages[0]?.timestamp ?? new Date(),
+        updatedAt: new Date(),
+      };
+      this.conversations.update((c) => [existing, ...c]);
+    } else {
+      this.saveCurrentConversation();
+    }
 
     const conv: Conversation = {
       id: crypto.randomUUID(),

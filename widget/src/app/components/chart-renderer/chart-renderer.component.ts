@@ -91,44 +91,62 @@ export class ChartRendererComponent implements OnDestroy {
       const data = result.data;
 
       // Portfolio analysis — sector allocation → pie chart
-      if (data.sector_allocation && Array.isArray(data.sector_allocation)) {
-        const sectors = data.sector_allocation.slice(0, 8);
-        configs.push({
-          title: 'Sector Allocation',
-          type: 'pie',
-          labels: sectors.map((s: any) => s.sector || s.name || 'Unknown'),
-          datasets: [{
-            label: 'Allocation %',
-            data: sectors.map((s: any) => s.allocation_percent ?? s.percentage ?? s.value ?? 0),
-            backgroundColor: this.getColorPalette(sectors.length),
-          }],
-        });
+      // Backend returns sector_allocation as object {sectorName: percent} or array
+      const sectorAlloc = data.sector_allocation;
+      if (sectorAlloc && typeof sectorAlloc === 'object') {
+        let sectors: { name: string; value: number }[];
+        if (Array.isArray(sectorAlloc)) {
+          sectors = sectorAlloc.slice(0, 8).map((s: any) => ({
+            name: s.sector || s.name || 'Unknown',
+            value: s.allocation_percent ?? s.percentage ?? s.value ?? 0,
+          }));
+        } else {
+          // Object format: {Technology: 45.2, Healthcare: 20.1, ...}
+          sectors = Object.entries(sectorAlloc)
+            .slice(0, 8)
+            .map(([name, value]) => ({ name, value: value as number }));
+        }
+        if (sectors.length > 0) {
+          configs.push({
+            title: 'Sector Allocation',
+            type: 'pie',
+            labels: sectors.map((s) => s.name),
+            datasets: [{
+              label: 'Allocation %',
+              data: sectors.map((s) => s.value),
+              backgroundColor: this.getColorPalette(sectors.length),
+            }],
+          });
+        }
       }
 
       // Portfolio analysis — top holdings → horizontal bar
-      if (data.top_holdings && Array.isArray(data.top_holdings)) {
-        const holdings = data.top_holdings.slice(0, 10);
+      // Backend returns "holdings" (not "top_holdings")
+      const holdings = data.top_holdings ?? data.holdings;
+      if (holdings && Array.isArray(holdings)) {
+        const topHoldings = holdings.slice(0, 10);
         configs.push({
           title: 'Top Holdings',
           type: 'bar',
           indexAxis: 'y',
-          labels: holdings.map((h: any) => h.name || h.symbol || 'Unknown'),
+          labels: topHoldings.map((h: any) => h.name || h.symbol || 'Unknown'),
           datasets: [{
             label: 'Allocation %',
-            data: holdings.map((h: any) => h.allocation_percent ?? h.percentage ?? h.value ?? 0),
-            backgroundColor: this.getColorPalette(holdings.length),
+            data: topHoldings.map((h: any) => h.allocation_pct ?? h.allocation_percent ?? h.percentage ?? h.value ?? 0),
+            backgroundColor: this.getColorPalette(topHoldings.length),
           }],
         });
       }
 
       // Benchmark comparison → grouped bar
-      if (data.benchmarks && Array.isArray(data.benchmarks)) {
-        const benchmarks = data.benchmarks;
-        const portfolioReturn = data.portfolio_return ?? data.portfolio_return_percent ?? 0;
+      // Backend returns "comparisons" (not "benchmarks")
+      const benchmarks = data.benchmarks ?? data.comparisons;
+      if (benchmarks && Array.isArray(benchmarks)) {
+        const portfolioReturn = data.portfolio_return_pct ?? data.portfolio_return ?? data.portfolio_return_percent ?? 0;
         configs.push({
           title: 'Portfolio vs Benchmarks',
           type: 'bar',
-          labels: benchmarks.map((b: any) => b.name || b.symbol || 'Benchmark'),
+          labels: benchmarks.map((b: any) => b.benchmark || b.name || b.symbol || 'Benchmark'),
           datasets: [
             {
               label: 'Portfolio',
@@ -137,7 +155,7 @@ export class ChartRendererComponent implements OnDestroy {
             },
             {
               label: 'Benchmark',
-              data: benchmarks.map((b: any) => b.return_percent ?? b.return ?? 0),
+              data: benchmarks.map((b: any) => b.benchmark_return_pct ?? b.return_percent ?? b.return ?? 0),
               backgroundColor: ['rgba(168, 162, 158, 0.7)'],
             },
           ],
