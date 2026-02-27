@@ -132,6 +132,10 @@ export class ChatInputComponent {
     }
   }
 
+  focusTextarea(): void {
+    this.textarea()?.nativeElement?.focus();
+  }
+
   autoResize(): void {
     const el = this.textarea()?.nativeElement;
     if (el) {

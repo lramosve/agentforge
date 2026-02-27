@@ -1,11 +1,13 @@
 """API router for agent endpoints."""
 
 import asyncio
+import json
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from agent.graph import run_agent
+from agent.graph import run_agent, stream_agent
 from agent.observability import score_trace
 from agent.tools import ALL_TOOLS
 
@@ -25,6 +27,7 @@ class ChatResponse(BaseModel):
     confidence: float
     metrics: dict
     trace_id: str
+    tool_results: list[dict] = []
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -41,6 +44,35 @@ async def chat(request: ChatRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/chat-stream")
+async def chat_stream(request: ChatRequest):
+    """Stream agent response as Server-Sent Events."""
+    if not request.message or not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    async def event_generator():
+        try:
+            async for event in stream_agent(
+                message=request.message,
+                conversation_id=request.conversation_id,
+                ghostfolio_token=request.ghostfolio_token,
+            ):
+                event_type = event.get("type", "token")
+                event_data = json.dumps(event.get("data", {}))
+                yield f"event: {event_type}\ndata: {event_data}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 class ToolInfo(BaseModel):

@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, effect, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import {
@@ -14,6 +14,8 @@ import { environment } from '../../environments/environment';
 @Injectable({ providedIn: 'root' })
 export class AgentService {
   private readonly apiUrl = environment.apiUrl;
+  private readonly STORAGE_KEY_MESSAGES = 'af_messages';
+  private readonly STORAGE_KEY_CONVERSATION = 'af_conversationId';
 
   private readonly toolPromptMap: Record<string, string> = {
     portfolio_analysis:
@@ -41,10 +43,49 @@ export class AgentService {
   readonly toolsLoaded = signal(false);
 
   readonly hasMessages = computed(() => this.messages().length > 0);
+  readonly pinnedMessages = computed(() => this.messages().filter((m) => m.pinned));
+  readonly hasPinnedMessages = computed(() => this.pinnedMessages().length > 0);
 
   constructor(private readonly http: HttpClient) {
+    this.loadFromStorage();
     this.checkHealth();
     this.loadTools();
+
+    effect(() => {
+      const msgs = this.messages();
+      const convId = this.conversationId();
+      const storable = msgs.filter((m) => !m.loading);
+      if (storable.length > 0) {
+        localStorage.setItem(this.STORAGE_KEY_MESSAGES, JSON.stringify(storable));
+      } else {
+        localStorage.removeItem(this.STORAGE_KEY_MESSAGES);
+      }
+      if (convId) {
+        localStorage.setItem(this.STORAGE_KEY_CONVERSATION, convId);
+      } else {
+        localStorage.removeItem(this.STORAGE_KEY_CONVERSATION);
+      }
+    });
+  }
+
+  private loadFromStorage(): void {
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY_MESSAGES);
+      if (raw) {
+        const parsed: ChatMessage[] = JSON.parse(raw, (_key, value) => {
+          if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+            const d = new Date(value);
+            if (!isNaN(d.getTime())) return d;
+          }
+          return value;
+        });
+        this.messages.set(parsed.filter((m) => !m.loading));
+      }
+      const convId = localStorage.getItem(this.STORAGE_KEY_CONVERSATION);
+      if (convId) this.conversationId.set(convId);
+    } catch {
+      // Corrupted storage — start fresh
+    }
   }
 
   checkHealth(): void {
@@ -115,6 +156,7 @@ export class AgentService {
             confidence: res.confidence,
             metrics: res.metrics,
             trace_id: res.trace_id,
+            tool_results: res.tool_results,
           };
 
           this.messages.update((msgs) =>
@@ -145,10 +187,147 @@ export class AgentService {
       });
   }
 
+  sendMessageStreaming(content: string): void {
+    if (!content.trim() || this.isLoading()) return;
+
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: content.trim(),
+      timestamp: new Date(),
+    };
+
+    const streamingMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'agent',
+      content: '',
+      timestamp: new Date(),
+      loading: true,
+    };
+
+    this.messages.update((msgs) => [...msgs, userMessage, streamingMessage]);
+    this.isLoading.set(true);
+    this.error.set(null);
+
+    const body = JSON.stringify({
+      message: content.trim(),
+      conversation_id: this.conversationId() ?? undefined,
+    });
+
+    fetch(`${this.apiUrl}/api/agent/chat-stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    })
+      .then((response) => {
+        if (!response.ok || !response.body) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        const processChunk = (): Promise<void> => {
+          return reader.read().then(({ done, value }) => {
+            if (done) {
+              this.isLoading.set(false);
+              this.messages.update((msgs) =>
+                msgs.map((m) =>
+                  m.id === streamingMessage.id ? { ...m, loading: false } : m
+                )
+              );
+              return;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+
+            let eventType = '';
+            for (const line of lines) {
+              if (line.startsWith('event: ')) {
+                eventType = line.slice(7).trim();
+              } else if (line.startsWith('data: ')) {
+                const dataStr = line.slice(6);
+                try {
+                  const data = JSON.parse(dataStr);
+                  this.handleSSEEvent(eventType, data, streamingMessage.id);
+                } catch {
+                  // Skip malformed JSON
+                }
+                eventType = '';
+              }
+            }
+            return processChunk();
+          });
+        };
+
+        return processChunk();
+      })
+      .catch(() => {
+        // Fallback to non-streaming
+        this.messages.update((msgs) =>
+          msgs.filter((m) => m.id !== streamingMessage.id && m.id !== userMessage.id)
+        );
+        this.isLoading.set(false);
+        this.sendMessage(content);
+      });
+  }
+
+  private handleSSEEvent(type: string, data: any, messageId: string): void {
+    switch (type) {
+      case 'token':
+        this.messages.update((msgs) =>
+          msgs.map((m) =>
+            m.id === messageId
+              ? { ...m, content: m.content + (data.content ?? ''), loading: true }
+              : m
+          )
+        );
+        break;
+
+      case 'tool_start':
+        this.messages.update((msgs) =>
+          msgs.map((m) => {
+            if (m.id !== messageId) return m;
+            const tools = [...(m.tools_used ?? [])];
+            if (data.tool && !tools.includes(data.tool)) tools.push(data.tool);
+            return { ...m, tools_used: tools };
+          })
+        );
+        break;
+
+      case 'done':
+        this.conversationId.set(data.conversation_id ?? null);
+        this.messages.update((msgs) =>
+          msgs.map((m) =>
+            m.id === messageId
+              ? {
+                  ...m,
+                  loading: false,
+                  confidence: data.confidence,
+                  metrics: data.metrics,
+                  trace_id: data.trace_id,
+                  tools_used: data.tools_used ?? m.tools_used,
+                  tool_results: data.tool_results,
+                }
+              : m
+          )
+        );
+        this.isLoading.set(false);
+        break;
+
+      case 'error':
+        this.error.set(data.message ?? 'Streaming error');
+        this.isLoading.set(false);
+        break;
+    }
+  }
+
   sendToolPrompt(toolName: string): void {
     const prompt =
       this.toolPromptMap[toolName] ?? `Use the ${toolName} tool`;
-    this.sendMessage(prompt);
+    this.sendMessageStreaming(prompt);
   }
 
   submitFeedback(messageId: string, traceId: string, score: 'up' | 'down'): void {
@@ -169,9 +348,17 @@ export class AgentService {
       .subscribe();
   }
 
+  togglePin(messageId: string): void {
+    this.messages.update((msgs) =>
+      msgs.map((m) => (m.id === messageId ? { ...m, pinned: !m.pinned } : m))
+    );
+  }
+
   clearConversation(): void {
     this.messages.set([]);
     this.conversationId.set(null);
     this.error.set(null);
+    localStorage.removeItem(this.STORAGE_KEY_MESSAGES);
+    localStorage.removeItem(this.STORAGE_KEY_CONVERSATION);
   }
 }

@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, HostListener, input, output, signal } from '@angular/core';
 
 @Component({
   selector: 'af-header-bar',
@@ -6,6 +6,9 @@ import { Component, input, output } from '@angular/core';
   template: `
     <header class="header">
       <div class="header-left">
+        <button class="icon-btn" title="Conversations" (click)="toggleSidebar.emit()">
+          <span class="material-icons-round">menu</span>
+        </button>
         <span class="logo material-icons-round">psychology</span>
         <div class="title-group">
           <h1 class="title">AgentForge</h1>
@@ -17,6 +20,28 @@ import { Component, input, output } from '@angular/core';
       </div>
 
       <div class="header-actions">
+        <div class="export-wrapper">
+          <button
+            class="icon-btn"
+            title="Export conversation"
+            [disabled]="!hasMessages()"
+            (click)="toggleExport($event)"
+          >
+            <span class="material-icons-round">download</span>
+          </button>
+          @if (exportOpen()) {
+            <div class="export-dropdown">
+              <button class="export-option" (click)="onExportMd()">
+                <span class="material-icons-round">description</span>
+                Export as Markdown
+              </button>
+              <button class="export-option" (click)="onExportCsv()">
+                <span class="material-icons-round">table_chart</span>
+                Export as CSV
+              </button>
+            </div>
+          }
+        </div>
         <button
           class="icon-btn"
           title="Clear conversation"
@@ -106,20 +131,104 @@ import { Component, input, output } from '@angular/core';
       justify-content: center;
       transition: background var(--af-transition), color var(--af-transition);
 
-      &:hover {
+      &:hover:not(:disabled) {
         background: var(--af-bg-tertiary);
         color: var(--af-text-primary);
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
       }
 
       .material-icons-round {
         font-size: 20px;
       }
     }
+
+    .export-wrapper {
+      position: relative;
+    }
+
+    .export-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 200px;
+      background: var(--af-bg-primary);
+      border: 1px solid var(--af-border);
+      border-radius: var(--af-radius-sm);
+      box-shadow: var(--af-shadow-lg);
+      z-index: 100;
+      overflow: hidden;
+      animation: fadeIn 120ms ease;
+    }
+
+    .export-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: none;
+      color: var(--af-text-primary);
+      font-family: var(--af-font-family);
+      font-size: 0.85em;
+      cursor: pointer;
+      transition: background var(--af-transition);
+
+      .material-icons-round {
+        font-size: 18px;
+        color: var(--af-text-muted);
+      }
+
+      &:hover {
+        background: var(--af-accent-bg);
+      }
+
+      &:not(:last-child) {
+        border-bottom: 1px solid var(--af-border);
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   `,
 })
 export class HeaderBarComponent {
   readonly isConnected = input(false);
   readonly isDark = input(false);
+  readonly hasMessages = input(false);
   readonly toggleTheme = output<void>();
   readonly clearChat = output<void>();
+  readonly toggleSidebar = output<void>();
+  readonly exportMarkdown = output<void>();
+  readonly exportCsv = output<void>();
+
+  readonly exportOpen = signal(false);
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.exportOpen()) {
+      this.exportOpen.set(false);
+    }
+  }
+
+  toggleExport(event: Event): void {
+    event.stopPropagation();
+    this.exportOpen.update((v) => !v);
+  }
+
+  onExportMd(): void {
+    this.exportOpen.set(false);
+    this.exportMarkdown.emit();
+  }
+
+  onExportCsv(): void {
+    this.exportOpen.set(false);
+    this.exportCsv.emit();
+  }
 }

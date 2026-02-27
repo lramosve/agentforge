@@ -1,9 +1,10 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { MarkdownComponent } from 'ngx-markdown';
 import { ChatMessage } from '../../models/chat.models';
 import { MessageMetadataComponent } from '../message-metadata/message-metadata.component';
 import { TypingIndicatorComponent } from '../typing-indicator/typing-indicator.component';
+import { ChartRendererComponent } from '../chart-renderer/chart-renderer.component';
 
 @Component({
   selector: 'af-chat-message',
@@ -13,12 +14,14 @@ import { TypingIndicatorComponent } from '../typing-indicator/typing-indicator.c
     MarkdownComponent,
     MessageMetadataComponent,
     TypingIndicatorComponent,
+    ChartRendererComponent,
   ],
   template: `
     <div
       class="message af-fade-in"
       [class.message--user]="message().role === 'user'"
       [class.message--agent]="message().role === 'agent'"
+      [class.message--pinned]="message().pinned"
     >
       @if (message().role === 'agent') {
         <div class="avatar">
@@ -30,8 +33,20 @@ import { TypingIndicatorComponent } from '../typing-indicator/typing-indicator.c
         @if (message().loading) {
           <af-typing-indicator />
         } @else if (message().role === 'agent') {
-          <div class="af-markdown">
-            <markdown [data]="message().content" />
+          <div class="bubble-content">
+            <div class="af-markdown">
+              <markdown [data]="message().content" />
+            </div>
+            <button
+              class="copy-btn"
+              [class.copied]="copied()"
+              (click)="copyContent()"
+              title="Copy to clipboard"
+            >
+              <span class="material-icons-round">
+                {{ copied() ? 'check' : 'content_copy' }}
+              </span>
+            </button>
           </div>
           @if (message().tools_used?.length || message().confidence !== undefined) {
             <af-message-metadata
@@ -44,13 +59,38 @@ import { TypingIndicatorComponent } from '../typing-indicator/typing-indicator.c
               (feedbackSubmitted)="feedbackSubmitted.emit($event)"
             />
           }
+          @if (message().tool_results?.length) {
+            <af-chart-renderer [toolResults]="message().tool_results!" />
+          }
         } @else {
-          <div class="user-text">{{ message().content }}</div>
+          <div class="bubble-content">
+            <div class="user-text">{{ message().content }}</div>
+            <button
+              class="copy-btn"
+              [class.copied]="copied()"
+              (click)="copyContent()"
+              title="Copy to clipboard"
+            >
+              <span class="material-icons-round">
+                {{ copied() ? 'check' : 'content_copy' }}
+              </span>
+            </button>
+          </div>
         }
       </div>
 
-      <div class="timestamp">
-        {{ message().timestamp | date:'shortTime' }}
+      <div class="message-actions">
+        <button
+          class="pin-btn"
+          [class.pinned]="message().pinned"
+          (click)="pinToggled.emit(message().id)"
+          title="{{ message().pinned ? 'Unpin message' : 'Pin message' }}"
+        >
+          <span class="material-icons-round">push_pin</span>
+        </button>
+        <div class="timestamp">
+          {{ message().timestamp | date:'shortTime' }}
+        </div>
       </div>
     </div>
   `,
@@ -69,6 +109,10 @@ import { TypingIndicatorComponent } from '../typing-indicator/typing-indicator.c
 
       &--agent {
         margin-right: auto;
+      }
+
+      &--pinned .bubble {
+        border-left: 3px solid var(--af-accent);
       }
     }
 
@@ -108,9 +152,102 @@ import { TypingIndicatorComponent } from '../typing-indicator/typing-indicator.c
       }
     }
 
+    .bubble-content {
+      position: relative;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 4px;
+      background: var(--af-bg-tertiary);
+      color: var(--af-text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity var(--af-transition), color var(--af-transition), background var(--af-transition);
+
+      .material-icons-round {
+        font-size: 15px;
+      }
+
+      &:hover {
+        color: var(--af-text-primary);
+        background: var(--af-bg-secondary);
+      }
+
+      &.copied {
+        opacity: 1;
+        color: var(--af-success);
+      }
+    }
+
+    .bubble:hover .copy-btn {
+      opacity: 1;
+    }
+
+    @media (hover: none) {
+      .copy-btn {
+        opacity: 1;
+      }
+    }
+
     .user-text {
       white-space: pre-wrap;
       word-break: break-word;
+    }
+
+    .message-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .pin-btn {
+      width: 24px;
+      height: 24px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--af-text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity var(--af-transition), color var(--af-transition), transform var(--af-transition);
+
+      .material-icons-round {
+        font-size: 16px;
+      }
+
+      &:hover {
+        color: var(--af-accent);
+      }
+
+      &.pinned {
+        opacity: 1;
+        color: var(--af-accent);
+        transform: rotate(45deg);
+      }
+    }
+
+    .message:hover .pin-btn {
+      opacity: 1;
+    }
+
+    @media (hover: none) {
+      .pin-btn {
+        opacity: 1;
+      }
     }
 
     .timestamp {
@@ -125,4 +262,14 @@ import { TypingIndicatorComponent } from '../typing-indicator/typing-indicator.c
 export class ChatMessageComponent {
   readonly message = input.required<ChatMessage>();
   readonly feedbackSubmitted = output<{ messageId: string; traceId: string; score: 'up' | 'down' }>();
+  readonly pinToggled = output<string>();
+
+  readonly copied = signal(false);
+
+  copyContent(): void {
+    navigator.clipboard.writeText(this.message().content).then(() => {
+      this.copied.set(true);
+      setTimeout(() => this.copied.set(false), 2000);
+    });
+  }
 }

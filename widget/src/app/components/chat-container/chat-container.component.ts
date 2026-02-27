@@ -3,6 +3,7 @@ import {
   ElementRef,
   effect,
   inject,
+  signal,
   viewChild,
 } from '@angular/core';
 import { ChatMessageComponent } from '../chat-message/chat-message.component';
@@ -16,6 +17,39 @@ import { AgentService } from '../../services/agent.service';
   template: `
     <div class="container">
       <div class="messages" #scrollContainer>
+        @if (agentService.hasPinnedMessages() && pinnedOpen()) {
+          <div class="pinned-section af-fade-in">
+            <button class="pinned-header" (click)="pinnedOpen.set(!pinnedOpen())">
+              <span class="material-icons-round pinned-icon">push_pin</span>
+              <span>Pinned ({{ agentService.pinnedMessages().length }})</span>
+              <span class="material-icons-round chevron">expand_less</span>
+            </button>
+            <div class="pinned-list">
+              @for (pin of agentService.pinnedMessages(); track pin.id) {
+                <div class="pinned-card" (click)="scrollToMessage(pin.id)">
+                  <span class="material-icons-round pinned-card-icon">
+                    {{ pin.role === 'user' ? 'person' : 'smart_toy' }}
+                  </span>
+                  <span class="pinned-card-text">{{ truncate(pin.content, 100) }}</span>
+                  <button
+                    class="pinned-card-unpin"
+                    (click)="unpin($event, pin.id)"
+                    title="Unpin"
+                  >
+                    <span class="material-icons-round">close</span>
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        } @else if (agentService.hasPinnedMessages()) {
+          <button class="pinned-collapsed" (click)="pinnedOpen.set(true)">
+            <span class="material-icons-round pinned-icon">push_pin</span>
+            <span>Pinned ({{ agentService.pinnedMessages().length }})</span>
+            <span class="material-icons-round chevron">expand_more</span>
+          </button>
+        }
+
         @if (!agentService.hasMessages()) {
           <div class="empty-state af-fade-in">
             <span class="material-icons-round empty-icon">forum</span>
@@ -35,7 +69,12 @@ import { AgentService } from '../../services/agent.service';
         }
 
         @for (msg of agentService.messages(); track msg.id) {
-          <af-chat-message [message]="msg" (feedbackSubmitted)="onFeedback($event)" />
+          <af-chat-message
+            [attr.data-message-id]="msg.id"
+            [message]="msg"
+            (feedbackSubmitted)="onFeedback($event)"
+            (pinToggled)="onPinToggle($event)"
+          />
         }
 
         @if (agentService.error(); as err) {
@@ -69,6 +108,104 @@ import { AgentService } from '../../services/agent.service';
       padding: 16px;
       display: flex;
       flex-direction: column;
+    }
+
+    .pinned-section {
+      border: 1px solid var(--af-border);
+      border-radius: var(--af-radius-sm);
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    .pinned-header, .pinned-collapsed {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      padding: 8px 12px;
+      border: none;
+      background: var(--af-accent-bg);
+      color: var(--af-accent);
+      font-family: var(--af-font-family);
+      font-size: 0.82em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background var(--af-transition);
+
+      &:hover {
+        background: var(--af-bg-tertiary);
+      }
+    }
+
+    .pinned-collapsed {
+      border: 1px solid var(--af-border);
+      border-radius: var(--af-radius-sm);
+      margin-bottom: 12px;
+    }
+
+    .pinned-icon {
+      font-size: 16px;
+      transform: rotate(45deg);
+    }
+
+    .chevron {
+      margin-left: auto;
+      font-size: 18px;
+    }
+
+    .pinned-list {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pinned-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      border-top: 1px solid var(--af-border);
+      transition: background var(--af-transition);
+
+      &:hover {
+        background: var(--af-bg-tertiary);
+      }
+    }
+
+    .pinned-card-icon {
+      font-size: 16px;
+      color: var(--af-text-muted);
+      flex-shrink: 0;
+    }
+
+    .pinned-card-text {
+      flex: 1;
+      font-size: 0.82em;
+      color: var(--af-text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pinned-card-unpin {
+      width: 22px;
+      height: 22px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--af-text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      .material-icons-round { font-size: 14px; }
+
+      &:hover {
+        color: var(--af-danger);
+        background: rgba(225, 112, 85, 0.1);
+      }
     }
 
     .empty-state {
@@ -163,6 +300,10 @@ export class ChatContainerComponent {
   private readonly scrollContainer =
     viewChild<ElementRef<HTMLElement>>('scrollContainer');
 
+  private readonly chatInput = viewChild(ChatInputComponent);
+
+  readonly pinnedOpen = signal(false);
+
   readonly suggestions = [
     'Portfolio summary',
     'Performance this year',
@@ -177,16 +318,40 @@ export class ChatContainerComponent {
     });
   }
 
+  focusInput(): void {
+    this.chatInput()?.focusTextarea();
+  }
+
   onSend(message: string): void {
-    this.agentService.sendMessage(message);
+    this.agentService.sendMessageStreaming(message);
   }
 
   onFeedback(event: { messageId: string; traceId: string; score: 'up' | 'down' }): void {
     this.agentService.submitFeedback(event.messageId, event.traceId, event.score);
   }
 
+  onPinToggle(messageId: string): void {
+    this.agentService.togglePin(messageId);
+  }
+
   sendSuggestion(chip: string): void {
-    this.agentService.sendMessage(chip);
+    this.agentService.sendMessageStreaming(chip);
+  }
+
+  scrollToMessage(messageId: string): void {
+    const el = this.scrollContainer()?.nativeElement?.querySelector(
+      `[data-message-id="${messageId}"]`
+    ) as HTMLElement | null;
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  truncate(text: string, max: number): string {
+    return text.length > max ? text.slice(0, max) + '...' : text;
+  }
+
+  unpin(event: Event, messageId: string): void {
+    event.stopPropagation();
+    this.agentService.togglePin(messageId);
   }
 
   private scrollToBottom(): void {

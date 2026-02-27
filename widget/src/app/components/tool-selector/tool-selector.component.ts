@@ -137,6 +137,13 @@ export class ToolSelectorComponent {
     }
   }
 
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.isOpen()) {
+      this.isOpen.set(false);
+    }
+  }
+
   toggle(event: Event): void {
     event.stopPropagation();
     this.isOpen.update((v) => !v);
