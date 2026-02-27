@@ -12,7 +12,7 @@ class AgentConfig:
 
     LANGFUSE_PUBLIC_KEY: str = os.getenv("LANGFUSE_PUBLIC_KEY", "")
     LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "")
-    LANGFUSE_HOST: str = os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com")
+    LANGFUSE_HOST: str = os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL", "https://us.cloud.langfuse.com")
 
     MAX_ITERATIONS: int = int(os.getenv("AGENT_MAX_ITERATIONS", "10"))
     TIMEOUT_SECONDS: float = float(os.getenv("AGENT_TIMEOUT_SECONDS", "30"))

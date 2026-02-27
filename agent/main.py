@@ -1,22 +1,11 @@
 """AgentForge — FastAPI entry point for the financial AI agent."""
 
-import base64
-import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
 # Load .env BEFORE any other agent imports so env vars are available
 load_dotenv()
-
-# Configure OTEL exporter for Langfuse v3 — must happen before OTEL/langfuse imports
-_lf_pk = os.getenv("LANGFUSE_PUBLIC_KEY", "")
-_lf_sk = os.getenv("LANGFUSE_SECRET_KEY", "")
-_lf_host = os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com")
-if _lf_pk and _lf_sk:
-    _auth = base64.b64encode(f"{_lf_pk}:{_lf_sk}".encode()).decode()
-    os.environ.setdefault("OTEL_EXPORTER_OTLP_ENDPOINT", f"{_lf_host.rstrip('/')}/api/public/otel")
-    os.environ.setdefault("OTEL_EXPORTER_OTLP_HEADERS", f"Authorization=Basic {_auth}")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
