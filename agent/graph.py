@@ -370,110 +370,38 @@ async def stream_agent(
     conversation_id: str | None = None,
     ghostfolio_token: str | None = None,
 ) -> AsyncGenerator[dict, None]:
-    """Stream agent response as SSE-friendly dicts."""
-    if not message or not message.strip():
-        yield {"type": "token", "data": {"content": "It looks like you sent an empty message. How can I help you with your portfolio today?"}}
-        yield {"type": "done", "data": {"conversation_id": conversation_id or str(uuid.uuid4()), "trace_id": "", "tools_used": [], "confidence": 0.0, "metrics": AgentMetrics(task_id=f"chat_{int(time.time())}").to_dict(), "tool_results": []}}
-        return
+    """Stream agent response as SSE-friendly dicts.
 
-    conversation_id = conversation_id or str(uuid.uuid4())
-    trace_id = uuid.uuid4().hex
-    history = _conversations.get(conversation_id, [])
-    history.append(HumanMessage(content=message))
-
-    metrics = AgentMetrics(task_id=f"chat_{int(time.time())}")
-
-    initial_state: AgentState = {
-        "messages": history,
-        "tool_results": [],
-        "iterations": 0,
-        "confidence": 0.0,
-        "verification_passed": False,
-        "query_type": "general",
-        "metrics": {},
-        "total_input_tokens": 0,
-        "total_output_tokens": 0,
-        "model_used_last": "sonnet",
-        "sonnet_input_tokens": 0,
-        "sonnet_output_tokens": 0,
-        "haiku_input_tokens": 0,
-        "haiku_output_tokens": 0,
-    }
-
-    accumulated_content = ""
-    tools_used: list[str] = []
-
+    Delegates to run_agent() and emits the full response as SSE events.
+    This ensures full compatibility with the multi-node LangGraph pipeline
+    (classify → agent → tools → collect → verify) which doesn't support
+    reliable mid-graph token streaming.
+    """
     try:
-        async for event in agent_graph.astream_events(initial_state, version="v2"):
-            kind = event.get("event", "")
-
-            if kind == "on_chat_model_stream":
-                chunk = event.get("data", {}).get("chunk")
-                if chunk and hasattr(chunk, "content") and isinstance(chunk.content, str) and chunk.content:
-                    accumulated_content += chunk.content
-                    yield {"type": "token", "data": {"content": chunk.content}}
-
-            elif kind == "on_tool_start":
-                tool_name = event.get("name", "unknown")
-                tools_used.append(tool_name)
-                yield {"type": "tool_start", "data": {"tool": tool_name}}
-
-            elif kind == "on_tool_end":
-                tool_name = event.get("name", "unknown")
-                yield {"type": "tool_end", "data": {"tool": tool_name}}
-
-        # After streaming, get the final state by running the graph to completion
-        final_state = await agent_graph.ainvoke(initial_state)
-
-        # Extract final response text
-        response_text = ""
-        for msg in reversed(final_state["messages"]):
-            if isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
-                response_text = _extract_text(msg.content)
-                break
-
-        _conversations[conversation_id] = final_state["messages"]
-
-        # Populate metrics
-        input_tokens = final_state.get("total_input_tokens", 0)
-        output_tokens = final_state.get("total_output_tokens", 0)
-        sonnet_in = final_state.get("sonnet_input_tokens", 0)
-        sonnet_out = final_state.get("sonnet_output_tokens", 0)
-        haiku_in = final_state.get("haiku_input_tokens", 0)
-        haiku_out = final_state.get("haiku_output_tokens", 0)
-        cost = ((sonnet_in * 3.0 + sonnet_out * 15.0) + (haiku_in * 0.80 + haiku_out * 4.0)) / 1_000_000
-
-        metrics.success = True
-        metrics.end_time = time.time()
-        metrics.tools_called = list(set(tools_used))
-        metrics.iterations = final_state.get("iterations", 0)
-        metrics.input_tokens = input_tokens
-        metrics.output_tokens = output_tokens
-        metrics.total_tokens = input_tokens + output_tokens
-        metrics.total_cost_usd = cost
-
-        # Verify
-        confidence = final_state.get("confidence", 0.0)
-
-        asyncio.create_task(_trace_in_background(
+        result = await run_agent(
+            message=message,
             conversation_id=conversation_id,
-            input_message=message,
-            output_message=response_text,
-            tools_used=list(set(tools_used)),
-            confidence=confidence,
-            metrics=metrics.to_dict(),
-            trace_id=trace_id,
-        ))
+            ghostfolio_token=ghostfolio_token,
+        )
 
+        # Emit the full response as a single token event
+        if result.get("response"):
+            yield {"type": "token", "data": {"content": result["response"]}}
+
+        # Emit tool usage
+        for tool in result.get("tools_used", []):
+            yield {"type": "tool_start", "data": {"tool": tool}}
+
+        # Emit done with all metadata
         yield {
             "type": "done",
             "data": {
-                "conversation_id": conversation_id,
-                "trace_id": trace_id,
-                "tools_used": list(set(tools_used)),
-                "confidence": confidence,
-                "metrics": metrics.to_dict(),
-                "tool_results": final_state.get("tool_results", []),
+                "conversation_id": result.get("conversation_id", ""),
+                "trace_id": result.get("trace_id", ""),
+                "tools_used": result.get("tools_used", []),
+                "confidence": result.get("confidence", 0.0),
+                "metrics": result.get("metrics", {}),
+                "tool_results": result.get("tool_results", []),
             },
         }
     except Exception as e:
