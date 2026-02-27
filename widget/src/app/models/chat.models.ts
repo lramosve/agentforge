@@ -23,6 +23,7 @@ export interface ChatResponse {
   tools_used: string[];
   confidence: number;
   metrics: AgentMetrics;
+  trace_id: string;
 }
 
 export interface ChatMessage {
@@ -34,6 +35,8 @@ export interface ChatMessage {
   confidence?: number;
   metrics?: AgentMetrics;
   loading?: boolean;
+  trace_id?: string;
+  feedback?: 'up' | 'down';
 }
 
 export interface HealthResponse {

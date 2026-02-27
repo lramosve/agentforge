@@ -68,6 +68,7 @@ async def _trace_in_background(
     tools_used: list[str],
     confidence: float,
     metrics: dict,
+    trace_id: str | None = None,
 ) -> None:
     """Fire-and-forget wrapper to run Langfuse tracing off the critical path."""
     try:
@@ -79,6 +80,7 @@ async def _trace_in_background(
             tools_used=tools_used,
             confidence=confidence,
             metrics=metrics,
+            trace_id=trace_id,
         )
     except Exception as e:
         logger.warning(f"Background Langfuse trace failed: {e}")
@@ -259,9 +261,11 @@ async def run_agent(
             "tools_used": [],
             "confidence": 0.0,
             "metrics": AgentMetrics(task_id=f"chat_{int(time.time())}").to_dict(),
+            "trace_id": "",
         }
 
     conversation_id = conversation_id or str(uuid.uuid4())
+    trace_id = uuid.uuid4().hex
     history = _conversations.get(conversation_id, [])
     history.append(HumanMessage(content=message))
 
@@ -334,6 +338,7 @@ async def run_agent(
         tools_used=tools_used,
         confidence=final_state.get("confidence", 0.0),
         metrics=metrics.to_dict(),
+        trace_id=trace_id,
     ))
 
     return {
@@ -342,4 +347,5 @@ async def run_agent(
         "tools_used": list(set(tools_used)),
         "confidence": final_state.get("confidence", 0.0),
         "metrics": metrics.to_dict(),
+        "trace_id": trace_id,
     }

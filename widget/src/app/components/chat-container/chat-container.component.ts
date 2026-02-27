@@ -35,7 +35,7 @@ import { AgentService } from '../../services/agent.service';
         }
 
         @for (msg of agentService.messages(); track msg.id) {
-          <af-chat-message [message]="msg" />
+          <af-chat-message [message]="msg" (feedbackSubmitted)="onFeedback($event)" />
         }
 
         @if (agentService.error(); as err) {
@@ -179,6 +179,10 @@ export class ChatContainerComponent {
 
   onSend(message: string): void {
     this.agentService.sendMessage(message);
+  }
+
+  onFeedback(event: { messageId: string; traceId: string; score: 'up' | 'down' }): void {
+    this.agentService.submitFeedback(event.messageId, event.traceId, event.score);
   }
 
   sendSuggestion(chip: string): void {

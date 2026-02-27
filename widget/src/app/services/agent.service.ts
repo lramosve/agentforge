@@ -114,6 +114,7 @@ export class AgentService {
             tools_used: res.tools_used,
             confidence: res.confidence,
             metrics: res.metrics,
+            trace_id: res.trace_id,
           };
 
           this.messages.update((msgs) =>
@@ -148,6 +149,24 @@ export class AgentService {
     const prompt =
       this.toolPromptMap[toolName] ?? `Use the ${toolName} tool`;
     this.sendMessage(prompt);
+  }
+
+  submitFeedback(messageId: string, traceId: string, score: 'up' | 'down'): void {
+    this.messages.update((msgs) =>
+      msgs.map((m) => (m.id === messageId ? { ...m, feedback: score } : m))
+    );
+    this.http
+      .post(`${this.apiUrl}/api/agent/feedback`, {
+        trace_id: traceId,
+        score: score === 'up' ? 1 : 0,
+      })
+      .pipe(
+        catchError((err) => {
+          console.error('Feedback failed:', err);
+          return of(null);
+        })
+      )
+      .subscribe();
   }
 
   clearConversation(): void {

@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { MarkdownComponent } from 'ngx-markdown';
 import { ChatMessage } from '../../models/chat.models';
@@ -38,6 +38,10 @@ import { TypingIndicatorComponent } from '../typing-indicator/typing-indicator.c
               [toolsUsed]="message().tools_used ?? []"
               [confidence]="message().confidence"
               [metrics]="message().metrics"
+              [traceId]="message().trace_id"
+              [messageId]="message().id"
+              [feedback]="message().feedback"
+              (feedbackSubmitted)="feedbackSubmitted.emit($event)"
             />
           }
         } @else {
@@ -120,4 +124,5 @@ import { TypingIndicatorComponent } from '../typing-indicator/typing-indicator.c
 })
 export class ChatMessageComponent {
   readonly message = input.required<ChatMessage>();
+  readonly feedbackSubmitted = output<{ messageId: string; traceId: string; score: 'up' | 'down' }>();
 }

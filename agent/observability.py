@@ -46,6 +46,7 @@ def trace_agent_run(
     tools_used: list[str],
     confidence: float,
     metrics: dict,
+    trace_id: str | None = None,
 ) -> None:
     """Log a complete agent run as a Langfuse trace."""
     client = _get_langfuse()
@@ -53,7 +54,10 @@ def trace_agent_run(
         return
 
     try:
+        trace_ctx = {"trace_id": trace_id} if trace_id else None
+
         span = client.start_span(
+            trace_context=trace_ctx,
             name="agentforge-chat",
             input=input_message,
             output=output_message,

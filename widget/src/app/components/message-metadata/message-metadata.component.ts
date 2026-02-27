@@ -1,4 +1,4 @@
-import { Component, input, signal } from '@angular/core';
+import { Component, input, output, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { AgentMetrics } from '../../models/chat.models';
 
@@ -8,24 +8,49 @@ import { AgentMetrics } from '../../models/chat.models';
   imports: [DecimalPipe],
   template: `
     <div class="metadata-wrapper">
-      <button class="metadata-toggle" (click)="expanded.set(!expanded())">
-        <span class="material-icons-round toggle-icon">
-          {{ expanded() ? 'expand_less' : 'expand_more' }}
-        </span>
-        <span class="metadata-summary">
-          @if (confidence() !== undefined) {
-            <span class="confidence-badge" [class]="confidenceClass()">
-              {{ (confidence()! * 100) | number:'1.0-0' }}% confidence
-            </span>
-          }
-          @if (toolsUsed().length > 0) {
-            <span class="tools-count">{{ toolsUsed().length }} tools</span>
-          }
-          @if (metrics()?.duration_seconds; as duration) {
-            <span class="duration">{{ duration | number:'1.1-1' }}s</span>
-          }
-        </span>
-      </button>
+      <div class="metadata-header">
+        <button class="metadata-toggle" (click)="expanded.set(!expanded())">
+          <span class="material-icons-round toggle-icon">
+            {{ expanded() ? 'expand_less' : 'expand_more' }}
+          </span>
+          <span class="metadata-summary">
+            @if (confidence() !== undefined) {
+              <span class="confidence-badge" [class]="confidenceClass()">
+                {{ (confidence()! * 100) | number:'1.0-0' }}% confidence
+              </span>
+            }
+            @if (toolsUsed().length > 0) {
+              <span class="tools-count">{{ toolsUsed().length }} tools</span>
+            }
+            @if (metrics()?.duration_seconds; as duration) {
+              <span class="duration">{{ duration | number:'1.1-1' }}s</span>
+            }
+          </span>
+        </button>
+
+        @if (traceId()) {
+          <div class="feedback-buttons">
+            <button
+              class="feedback-btn"
+              [class.selected]="feedback() === 'up'"
+              [disabled]="!!feedback()"
+              (click)="onFeedback('up')"
+              title="Helpful"
+            >
+              <span class="material-icons-round">thumb_up</span>
+            </button>
+            <button
+              class="feedback-btn"
+              [class.selected]="feedback() === 'down'"
+              [disabled]="!!feedback()"
+              (click)="onFeedback('down')"
+              title="Not helpful"
+            >
+              <span class="material-icons-round">thumb_down</span>
+            </button>
+          </div>
+        }
+      </div>
 
       @if (expanded()) {
         <div class="metadata-panel af-fade-in">
@@ -69,6 +94,51 @@ import { AgentMetrics } from '../../models/chat.models';
   styles: `
     .metadata-wrapper {
       margin-top: 6px;
+    }
+
+    .metadata-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feedback-buttons {
+      display: flex;
+      gap: 2px;
+      margin-left: auto;
+    }
+
+    .feedback-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 3px;
+      color: var(--af-text-muted);
+      transition: all var(--af-transition);
+
+      .material-icons-round {
+        font-size: 16px;
+      }
+
+      &:hover:not(:disabled) {
+        color: var(--af-accent);
+        background: var(--af-accent-bg);
+      }
+
+      &.selected {
+        color: var(--af-accent);
+        border-color: var(--af-accent);
+        background: var(--af-accent-bg);
+      }
+
+      &:disabled:not(.selected) {
+        opacity: 0.35;
+        cursor: default;
+      }
     }
 
     .metadata-toggle {
@@ -195,6 +265,11 @@ export class MessageMetadataComponent {
   readonly toolsUsed = input<string[]>([]);
   readonly confidence = input<number | undefined>(undefined);
   readonly metrics = input<AgentMetrics | undefined>(undefined);
+  readonly traceId = input<string | undefined>(undefined);
+  readonly messageId = input<string | undefined>(undefined);
+  readonly feedback = input<'up' | 'down' | undefined>(undefined);
+
+  readonly feedbackSubmitted = output<{ messageId: string; traceId: string; score: 'up' | 'down' }>();
 
   readonly expanded = signal(false);
 
@@ -204,5 +279,13 @@ export class MessageMetadataComponent {
     if (c >= 0.8) return 'high';
     if (c >= 0.5) return 'medium';
     return 'low';
+  }
+
+  onFeedback(score: 'up' | 'down'): void {
+    const traceId = this.traceId();
+    const messageId = this.messageId();
+    if (traceId && messageId) {
+      this.feedbackSubmitted.emit({ messageId, traceId, score });
+    }
   }
 }
