@@ -67,11 +67,12 @@ import { AgentService } from '../../services/agent.service';
       bottom: calc(100% + 8px);
       left: 0;
       min-width: 280px;
+      max-height: min(420px, 60vh);
       background: var(--af-bg-primary);
       border: 1px solid var(--af-border);
       border-radius: var(--af-radius);
       box-shadow: var(--af-shadow-lg);
-      overflow: hidden;
+      overflow-y: auto;
       z-index: 100;
       animation: fadeInUp 150ms ease;
     }
