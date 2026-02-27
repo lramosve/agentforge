@@ -179,13 +179,25 @@ def collect_tool_results(state: AgentState) -> AgentState:
     return {**state, "tool_results": tool_results}
 
 
+def _extract_text(content) -> str:
+    """Safely extract text from AIMessage content (may be str or list of parts)."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            part.get("text", "") if isinstance(part, dict) else str(part)
+            for part in content
+        )
+    return str(content)
+
+
 def verify_response(state: AgentState) -> AgentState:
     """Run verification checks on the agent's final response."""
     messages = state["messages"]
     last_ai_msg = ""
     for msg in reversed(messages):
         if isinstance(msg, AIMessage) and msg.content:
-            last_ai_msg = msg.content
+            last_ai_msg = _extract_text(msg.content)
             break
 
     if not last_ai_msg:
@@ -296,7 +308,7 @@ async def run_agent(
     response_text = ""
     for msg in reversed(final_state["messages"]):
         if isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
-            response_text = msg.content
+            response_text = _extract_text(msg.content)
             break
 
     # Update conversation history
@@ -417,7 +429,7 @@ async def stream_agent(
         response_text = ""
         for msg in reversed(final_state["messages"]):
             if isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
-                response_text = msg.content
+                response_text = _extract_text(msg.content)
                 break
 
         _conversations[conversation_id] = final_state["messages"]
