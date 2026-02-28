@@ -103,6 +103,8 @@ def classify_query(state: AgentState) -> AgentState:
         query_type = "advice"
     elif any(kw in last_user_msg for kw in ["compliance", "concentration", "diversif", "risk limit"]):
         query_type = "compliance"
+    elif any(kw in last_user_msg for kw in ["dividend", "income goal", "passive income", "yield", "payout"]):
+        query_type = "dividend"
 
     return {**state, "query_type": query_type}
 

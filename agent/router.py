@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from agent.database import create_goal, delete_goal, get_goals, update_goal
 from agent.graph import run_agent, stream_agent
 from agent.observability import score_trace
 from agent.tools import ALL_TOOLS
@@ -117,3 +118,78 @@ async def submit_feedback(request: FeedbackRequest):
 @router.get("/health")
 async def agent_health():
     return {"status": "ok", "agent": "agentforge"}
+
+
+# ---------------------------------------------------------------------------
+# Dividend Goal CRUD endpoints
+# ---------------------------------------------------------------------------
+
+class DividendGoalCreate(BaseModel):
+    target_monthly: float = 0.0
+    target_annual: float = 0.0
+    currency: str = "USD"
+    deadline: str = ""
+    notes: str = ""
+
+
+class DividendGoalUpdate(BaseModel):
+    target_monthly: float | None = None
+    target_annual: float | None = None
+    currency: str | None = None
+    deadline: str | None = None
+    notes: str | None = None
+
+
+class DividendGoalResponse(BaseModel):
+    id: str
+    target_monthly: float
+    target_annual: float
+    currency: str
+    deadline: str
+    notes: str
+    created_at: str
+    updated_at: str
+
+
+@router.get("/dividend-goals", response_model=list[DividendGoalResponse])
+async def list_dividend_goals():
+    """List all dividend income goals."""
+    goals = await asyncio.to_thread(get_goals)
+    return goals
+
+
+@router.post("/dividend-goals", response_model=DividendGoalResponse, status_code=201)
+async def create_dividend_goal(body: DividendGoalCreate):
+    """Create a new dividend income goal."""
+    if body.target_monthly <= 0 and body.target_annual <= 0:
+        raise HTTPException(status_code=400, detail="Provide a target_monthly or target_annual > 0")
+    goal = await asyncio.to_thread(
+        create_goal,
+        target_monthly=body.target_monthly,
+        target_annual=body.target_annual,
+        currency=body.currency,
+        deadline=body.deadline,
+        notes=body.notes,
+    )
+    return goal
+
+
+@router.put("/dividend-goals/{goal_id}", response_model=DividendGoalResponse)
+async def update_dividend_goal(goal_id: str, body: DividendGoalUpdate):
+    """Update an existing dividend income goal."""
+    kwargs = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not kwargs:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    updated = await asyncio.to_thread(update_goal, goal_id, **kwargs)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    return updated
+
+
+@router.delete("/dividend-goals/{goal_id}")
+async def delete_dividend_goal(goal_id: str):
+    """Delete a dividend income goal."""
+    deleted = await asyncio.to_thread(delete_goal, goal_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    return {"status": "ok", "deleted": goal_id}

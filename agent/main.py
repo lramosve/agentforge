@@ -16,6 +16,8 @@ from agent.router import router as agent_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: startup and shutdown."""
+    from agent.database import init_db
+    init_db()
     yield
 
 

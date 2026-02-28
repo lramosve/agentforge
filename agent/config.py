@@ -14,6 +14,8 @@ class AgentConfig:
     LANGFUSE_SECRET_KEY: str = os.getenv("LANGFUSE_SECRET_KEY", "")
     LANGFUSE_HOST: str = os.getenv("LANGFUSE_HOST") or os.getenv("LANGFUSE_BASE_URL", "https://us.cloud.langfuse.com")
 
+    DB_PATH: str = os.getenv("AGENTFORGE_DB_PATH", "data/agentforge.db")
+
     MAX_ITERATIONS: int = int(os.getenv("AGENT_MAX_ITERATIONS", "10"))
     TIMEOUT_SECONDS: float = float(os.getenv("AGENT_TIMEOUT_SECONDS", "30"))
     MAX_COST_USD: float = float(os.getenv("AGENT_MAX_COST_USD", "0.10"))

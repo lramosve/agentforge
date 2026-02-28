@@ -365,6 +365,62 @@
       "input_query": "Are there compliance violations in my portfolio? Also show my 1-year performance",
       "expected_tools": ["compliance_check", "portfolio_performance"],
       "expected_outcome": "compliance performance"
+    },
+    {
+      "id": "DIV_001",
+      "category": "happy_path",
+      "input_query": "When are my next dividend payments?",
+      "expected_tools": ["dividend_calendar"],
+      "expected_outcome": "dividend date"
+    },
+    {
+      "id": "DIV_002",
+      "category": "happy_path",
+      "input_query": "How much dividend income does my portfolio generate?",
+      "expected_tools": ["dividend_income_projection"],
+      "expected_outcome": "income annual monthly"
+    },
+    {
+      "id": "DIV_003",
+      "category": "happy_path",
+      "input_query": "Set a dividend income goal of $2000 per month",
+      "expected_tools": ["dividend_goal_manager"],
+      "expected_outcome": "goal created"
+    },
+    {
+      "id": "DIV_004",
+      "category": "happy_path",
+      "input_query": "What is the dividend yield for JNJ?",
+      "expected_tools": ["dividend_screener"],
+      "expected_outcome": "yield dividend"
+    },
+    {
+      "id": "DIV_005",
+      "category": "happy_path",
+      "input_query": "Show my dividend income goals",
+      "expected_tools": ["dividend_goal_manager"],
+      "expected_outcome": "goal target"
+    },
+    {
+      "id": "DIV_006",
+      "category": "multi_step",
+      "input_query": "Compare my projected dividend income against my $3000/month goal",
+      "expected_tools": ["dividend_income_projection"],
+      "expected_outcome": "income goal progress"
+    },
+    {
+      "id": "DIV_007",
+      "category": "edge_case",
+      "input_query": "What dividends will I get from a stock that doesn't pay dividends?",
+      "expected_tools": ["dividend_screener"],
+      "expected_outcome": "no dividend"
+    },
+    {
+      "id": "DIV_008",
+      "category": "happy_path",
+      "input_query": "Delete my dividend goal",
+      "expected_tools": ["dividend_goal_manager"],
+      "expected_outcome": "deleted"
     }
   ]
 }
