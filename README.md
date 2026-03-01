@@ -8,6 +8,8 @@ Production-ready financial AI agent with a chat widget, evaluation framework, an
 
 ## Architecture Overview
 
+[Architecture PDF](docs/Agent%20Architecture.pdf)
+
 AgentForge follows a two-tier architecture: a **Python/FastAPI backend** running a LangGraph agent, and an **Angular 21 frontend** chat widget deployed independently.
 
 ```

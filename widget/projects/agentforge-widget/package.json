@@ -1,0 +1,32 @@
+{
+  "name": "@lramosve/agentforge-widget",
+  "version": "0.1.1",
+  "description": "AI financial agent chat widget for Angular",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lramosve/agentforge"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "keywords": [
+    "angular",
+    "chat-widget",
+    "ai",
+    "agent",
+    "finance",
+    "agentforge"
+  ],
+  "peerDependencies": {
+    "@angular/common": "^21.0.0",
+    "@angular/core": "^21.0.0",
+    "@angular/forms": "^21.0.0",
+    "@angular/platform-browser": "^21.0.0",
+    "chart.js": "^4.4.0",
+    "marked": "^17.0.0",
+    "ngx-markdown": "^21.0.0",
+    "rxjs": "^7.8.0"
+  },
+  "sideEffects": false
+}

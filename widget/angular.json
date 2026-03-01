@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "agentforge-widget": {
+    "agentforge-demo": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -18,7 +18,7 @@
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/agentforge-widget",
+            "outputPath": "dist/agentforge-demo",
             "index": "src/index.html",
             "browser": "src/main.ts",
             "polyfills": ["zone.js"],
@@ -38,13 +38,13 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
+                  "maximumWarning": "700kB",
                   "maximumError": "1MB"
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumWarning": "6kB",
+                  "maximumError": "10kB"
                 }
               ],
               "fileReplacements": [
@@ -67,10 +67,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "agentforge-widget:build:production"
+              "buildTarget": "agentforge-demo:build:production"
             },
             "development": {
-              "buildTarget": "agentforge-widget:build:development"
+              "buildTarget": "agentforge-demo:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -92,6 +92,32 @@
           }
         }
       }
+    },
+    "agentforge-widget": {
+      "projectType": "library",
+      "root": "projects/agentforge-widget",
+      "sourceRoot": "projects/agentforge-widget/src",
+      "prefix": "af",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:ng-packagr",
+          "options": {
+            "project": "projects/agentforge-widget/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/agentforge-widget/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/agentforge-widget/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        }
+      }
     }
+  },
+  "cli": {
+    "analytics": false
   }
 }
