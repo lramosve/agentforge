@@ -16,8 +16,7 @@ import { AgentService } from '../../services/agent.service';
   standalone: true,
   imports: [ChatMessageComponent, ChatInputComponent],
   template: `
-    <div class="container">
-      <div class="messages" #scrollContainer>
+      <div class="messages">
         @if (agentService.hasPinnedMessages() && pinnedOpen()) {
           <div class="pinned-section af-fade-in">
             <button class="pinned-header" (click)="pinnedOpen.set(!pinnedOpen())">
@@ -88,26 +87,19 @@ import { AgentService } from '../../services/agent.service';
           </div>
         }
 
-        <div #scrollAnchor class="scroll-anchor"></div>
       </div>
 
       <af-chat-input
         [disabled]="agentService.isLoading()"
         (messageSent)="onSend($event)"
       />
-    </div>
   `,
   styles: `
     :host {
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    .container {
       display: flex;
       flex-direction: column;
-      height: 100%;
+      flex: 1;
+      min-height: 0;
     }
 
     .messages {
@@ -115,13 +107,6 @@ import { AgentService } from '../../services/agent.service';
       min-height: 0;
       overflow-y: auto;
       padding: 16px;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .scroll-anchor {
-      height: 0;
-      flex-shrink: 0;
     }
 
     .pinned-section {
@@ -310,12 +295,7 @@ import { AgentService } from '../../services/agent.service';
 })
 export class ChatContainerComponent implements OnDestroy {
   readonly agentService = inject(AgentService);
-
-  private readonly scrollContainer =
-    viewChild<ElementRef<HTMLElement>>('scrollContainer');
-
-  private readonly scrollAnchor =
-    viewChild<ElementRef<HTMLElement>>('scrollAnchor');
+  private readonly el = inject(ElementRef);
 
   private readonly chatInput = viewChild(ChatInputComponent);
 
@@ -328,40 +308,39 @@ export class ChatContainerComponent implements OnDestroy {
     'Top holdings',
   ];
 
-  private scrollObserver?: MutationObserver;
+  private scrollInterval?: number;
 
   constructor() {
-    // Set up MutationObserver once the scroll container is available
+    // Poll scroll while loading (covers typing indicator + streaming tokens)
     effect(() => {
-      const container = this.scrollContainer()?.nativeElement;
-      if (container && !this.scrollObserver) {
-        this.scrollObserver = new MutationObserver(() => {
-          this.doScroll();
-        });
-        this.scrollObserver.observe(container, {
-          childList: true,
-          subtree: true,
-          characterData: true,
-        });
+      const loading = this.agentService.isLoading();
+      if (loading) {
+        this.scrollToBottom();
+        if (!this.scrollInterval) {
+          this.scrollInterval = window.setInterval(() => this.scrollToBottom(), 150);
+        }
+      } else {
+        if (this.scrollInterval) {
+          window.clearInterval(this.scrollInterval);
+          this.scrollInterval = undefined;
+        }
+        // Final scroll after response finishes rendering
+        setTimeout(() => this.scrollToBottom(), 100);
       }
-    });
-
-    // Also scroll when messages or loading state change
-    effect(() => {
-      this.agentService.messages();
-      this.agentService.isLoading();
-      setTimeout(() => this.doScroll(), 50);
     });
   }
 
   ngOnDestroy(): void {
-    this.scrollObserver?.disconnect();
+    if (this.scrollInterval) {
+      window.clearInterval(this.scrollInterval);
+    }
   }
 
-  private doScroll(): void {
-    const anchor = this.scrollAnchor()?.nativeElement;
-    if (anchor) {
-      anchor.scrollIntoView({ block: 'end', behavior: 'instant' });
+  private scrollToBottom(): void {
+    const container: HTMLElement | null =
+      this.el.nativeElement.querySelector('.messages');
+    if (container) {
+      container.scrollTop = container.scrollHeight;
     }
   }
 
@@ -386,10 +365,10 @@ export class ChatContainerComponent implements OnDestroy {
   }
 
   scrollToMessage(messageId: string): void {
-    const el = this.scrollContainer()?.nativeElement?.querySelector(
+    const msg = this.el.nativeElement.querySelector(
       `[data-message-id="${messageId}"]`
     ) as HTMLElement | null;
-    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    msg?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   truncate(text: string, max: number): string {
