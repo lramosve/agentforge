@@ -1,8 +1,8 @@
 import {
-  AfterViewInit,
   Component,
   ElementRef,
   OnDestroy,
+  effect,
   inject,
   signal,
   viewChild,
@@ -87,6 +87,8 @@ import { AgentService } from '../../services/agent.service';
             </button>
           </div>
         }
+
+        <div #scrollAnchor class="scroll-anchor"></div>
       </div>
 
       <af-chat-input
@@ -109,6 +111,11 @@ import { AgentService } from '../../services/agent.service';
       padding: 16px;
       display: flex;
       flex-direction: column;
+    }
+
+    .scroll-anchor {
+      height: 0;
+      flex-shrink: 0;
     }
 
     .pinned-section {
@@ -295,11 +302,14 @@ import { AgentService } from '../../services/agent.service';
     }
   `,
 })
-export class ChatContainerComponent implements AfterViewInit, OnDestroy {
+export class ChatContainerComponent implements OnDestroy {
   readonly agentService = inject(AgentService);
 
   private readonly scrollContainer =
     viewChild<ElementRef<HTMLElement>>('scrollContainer');
+
+  private readonly scrollAnchor =
+    viewChild<ElementRef<HTMLElement>>('scrollAnchor');
 
   private readonly chatInput = viewChild(ChatInputComponent);
 
@@ -314,22 +324,39 @@ export class ChatContainerComponent implements AfterViewInit, OnDestroy {
 
   private scrollObserver?: MutationObserver;
 
-  ngAfterViewInit(): void {
-    const el = this.scrollContainer()?.nativeElement;
-    if (el) {
-      this.scrollObserver = new MutationObserver(() => {
-        el.scrollTop = el.scrollHeight;
-      });
-      this.scrollObserver.observe(el, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-      });
-    }
+  constructor() {
+    // Set up MutationObserver once the scroll container is available
+    effect(() => {
+      const container = this.scrollContainer()?.nativeElement;
+      if (container && !this.scrollObserver) {
+        this.scrollObserver = new MutationObserver(() => {
+          this.doScroll();
+        });
+        this.scrollObserver.observe(container, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+      }
+    });
+
+    // Also scroll when messages or loading state change
+    effect(() => {
+      this.agentService.messages();
+      this.agentService.isLoading();
+      setTimeout(() => this.doScroll(), 50);
+    });
   }
 
   ngOnDestroy(): void {
     this.scrollObserver?.disconnect();
+  }
+
+  private doScroll(): void {
+    const anchor = this.scrollAnchor()?.nativeElement;
+    if (anchor) {
+      anchor.scrollIntoView({ block: 'end', behavior: 'instant' });
+    }
   }
 
   focusInput(): void {
@@ -367,5 +394,4 @@ export class ChatContainerComponent implements AfterViewInit, OnDestroy {
     event.stopPropagation();
     this.agentService.togglePin(messageId);
   }
-
 }
