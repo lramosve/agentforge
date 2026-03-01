@@ -1,8 +1,8 @@
 import {
+  AfterViewInit,
   Component,
   ElementRef,
-  afterEveryRender,
-  effect,
+  OnDestroy,
   inject,
   signal,
   viewChild,
@@ -295,7 +295,7 @@ import { AgentService } from '../../services/agent.service';
     }
   `,
 })
-export class ChatContainerComponent {
+export class ChatContainerComponent implements AfterViewInit, OnDestroy {
   readonly agentService = inject(AgentService);
 
   private readonly scrollContainer =
@@ -312,33 +312,24 @@ export class ChatContainerComponent {
     'Top holdings',
   ];
 
-  private pendingScroll = false;
+  private scrollObserver?: MutationObserver;
 
-  constructor() {
-    // Flag scroll when messages change or loading starts
-    effect(() => {
-      this.agentService.messages();
-      this.pendingScroll = true;
-    });
+  ngAfterViewInit(): void {
+    const el = this.scrollContainer()?.nativeElement;
+    if (el) {
+      this.scrollObserver = new MutationObserver(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+      this.scrollObserver.observe(el, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+    }
+  }
 
-    effect(() => {
-      if (this.agentService.isLoading()) {
-        this.pendingScroll = true;
-      }
-    });
-
-    // afterEveryRender runs after Angular has flushed DOM updates
-    afterEveryRender({
-      read: () => {
-        if (this.pendingScroll) {
-          this.pendingScroll = false;
-          const el = this.scrollContainer()?.nativeElement;
-          if (el) {
-            el.scrollTop = el.scrollHeight;
-          }
-        }
-      },
-    });
+  ngOnDestroy(): void {
+    this.scrollObserver?.disconnect();
   }
 
   focusInput(): void {
