@@ -26,13 +26,13 @@ async def dividend_income_projection(
     try:
         # Fetch portfolio holdings
         gf = GhostfolioClient()
-        details = await gf.get_portfolio_details()
-        raw_holdings = details.get("holdings", {})
+        holdings_data = await gf.get_portfolio_holdings()
+        raw_holdings = holdings_data.get("holdings", [])
 
         holdings = [
-            {"symbol": h.get("symbol", ""), "value": h.get("value", 0)}
-            for h in raw_holdings.values()
-            if h.get("symbol") and h.get("value", 0) > 0
+            {"symbol": h.get("symbol", ""), "value": h.get("valueInBaseCurrency", 0)}
+            for h in raw_holdings
+            if h.get("symbol") and h.get("valueInBaseCurrency", 0) > 0
         ]
 
         if not holdings:

@@ -25,12 +25,12 @@ async def dividend_calendar(
     try:
         # Fetch portfolio holdings from Ghostfolio
         gf = GhostfolioClient()
-        details = await gf.get_portfolio_details()
-        holdings = details.get("holdings", {})
+        holdings_data = await gf.get_portfolio_holdings()
+        holdings = holdings_data.get("holdings", [])
 
         symbols = [
             h.get("symbol")
-            for h in holdings.values()
+            for h in holdings
             if h.get("symbol")
         ]
 
