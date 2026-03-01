@@ -283,6 +283,7 @@ async def run_agent(
     trace_id = uuid.uuid4().hex
     history = _conversations.get(conversation_id, [])
     history.append(HumanMessage(content=message))
+    history_len = len(history)  # track where new messages start
 
     metrics = AgentMetrics(task_id=f"chat_{int(time.time())}")
 
@@ -316,9 +317,9 @@ async def run_agent(
     # Update conversation history
     _conversations[conversation_id] = final_state["messages"]
 
-    # Collect tools used
+    # Collect tools used (only from this turn, not prior conversation history)
     tools_used = []
-    for msg in final_state["messages"]:
+    for msg in final_state["messages"][history_len:]:
         if isinstance(msg, AIMessage) and msg.tool_calls:
             tools_used.extend(tc["name"] for tc in msg.tool_calls)
 
