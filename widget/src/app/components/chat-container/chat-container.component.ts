@@ -98,6 +98,12 @@ import { AgentService } from '../../services/agent.service';
     </div>
   `,
   styles: `
+    :host {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
     .container {
       display: flex;
       flex-direction: column;
