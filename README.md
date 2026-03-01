@@ -235,6 +235,8 @@ npm run build
 
 ## Evaluation
 
+[Eval Dataset PDF](docs/Eval%20Dataset.pdf)
+
 Run the evaluation suite against the agent:
 
 ```bash
