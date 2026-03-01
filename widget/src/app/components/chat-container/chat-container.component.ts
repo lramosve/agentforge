@@ -312,9 +312,17 @@ export class ChatContainerComponent {
   ];
 
   constructor() {
+    // Scroll when messages change (new message added or content updated)
     effect(() => {
       this.agentService.messages();
       this.scrollToBottom();
+    });
+
+    // Scroll when loading starts (to show the typing indicator)
+    effect(() => {
+      if (this.agentService.isLoading()) {
+        this.scrollToBottom();
+      }
     });
   }
 
@@ -355,10 +363,11 @@ export class ChatContainerComponent {
   }
 
   private scrollToBottom(): void {
-    setTimeout(() => {
+    // Use requestAnimationFrame to ensure DOM has rendered before scrolling
+    requestAnimationFrame(() => {
       const el = this.scrollContainer()?.nativeElement;
       if (el) {
-        el.scrollTop = el.scrollHeight;
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
       }
     });
   }
