@@ -287,14 +287,9 @@ export class AgentService {
         break;
 
       case 'tool_start':
-        this.messages.update((msgs) =>
-          msgs.map((m) => {
-            if (m.id !== messageId) return m;
-            const tools = [...(m.tools_used ?? [])];
-            if (data.tool && !tools.includes(data.tool)) tools.push(data.tool);
-            return { ...m, tools_used: tools };
-          })
-        );
+        // Tool events are informational only; tools_used is set
+        // authoritatively by the 'done' event to avoid accumulation
+        // across conversation turns.
         break;
 
       case 'done':
@@ -308,7 +303,7 @@ export class AgentService {
                   confidence: data.confidence,
                   metrics: data.metrics,
                   trace_id: data.trace_id,
-                  tools_used: data.tools_used ?? m.tools_used,
+                  tools_used: data.tools_used ?? [],
                   tool_results: data.tool_results,
                 }
               : m

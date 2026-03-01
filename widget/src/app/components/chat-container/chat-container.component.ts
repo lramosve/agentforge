@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  afterEveryRender,
   effect,
   inject,
   signal,
@@ -311,18 +312,32 @@ export class ChatContainerComponent {
     'Top holdings',
   ];
 
+  private pendingScroll = false;
+
   constructor() {
-    // Scroll when messages change (new message added or content updated)
+    // Flag scroll when messages change or loading starts
     effect(() => {
       this.agentService.messages();
-      this.scrollToBottom();
+      this.pendingScroll = true;
     });
 
-    // Scroll when loading starts (to show the typing indicator)
     effect(() => {
       if (this.agentService.isLoading()) {
-        this.scrollToBottom();
+        this.pendingScroll = true;
       }
+    });
+
+    // afterEveryRender runs after Angular has flushed DOM updates
+    afterEveryRender({
+      read: () => {
+        if (this.pendingScroll) {
+          this.pendingScroll = false;
+          const el = this.scrollContainer()?.nativeElement;
+          if (el) {
+            el.scrollTop = el.scrollHeight;
+          }
+        }
+      },
     });
   }
 
@@ -362,13 +377,4 @@ export class ChatContainerComponent {
     this.agentService.togglePin(messageId);
   }
 
-  private scrollToBottom(): void {
-    // Use requestAnimationFrame to ensure DOM has rendered before scrolling
-    requestAnimationFrame(() => {
-      const el = this.scrollContainer()?.nativeElement;
-      if (el) {
-        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-      }
-    });
-  }
 }
