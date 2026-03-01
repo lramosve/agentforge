@@ -67,7 +67,7 @@ import { AgentService } from '../../services/agent.service';
       bottom: calc(100% + 8px);
       left: 0;
       min-width: 280px;
-      max-height: min(420px, 60vh);
+      max-height: 350px;
       background: var(--af-bg-primary);
       border: 1px solid var(--af-border);
       border-radius: var(--af-radius);
