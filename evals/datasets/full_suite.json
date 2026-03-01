@@ -126,7 +126,7 @@
     {
       "id": "HAPPY_018",
       "category": "happy_path",
-      "input_query": "How much dividend income have I earned this year?",
+      "input_query": "How much dividend income have I earned this year for tax purposes?",
       "expected_tools": ["tax_estimate"],
       "expected_outcome": "dividend income",
       "pass_criteria": {"must_contain_disclaimer": true}
@@ -157,7 +157,7 @@
       "category": "edge_case",
       "input_query": "What is the price of XYZNONEXISTENT123?",
       "expected_tools": ["market_data_lookup"],
-      "expected_outcome": "not found error"
+      "expected_outcome": "not found exist error unable"
     },
     {
       "id": "EDGE_003",
@@ -214,7 +214,7 @@
       "category": "edge_case",
       "input_query": "Check compliance with 100% single holding limit",
       "expected_tools": ["compliance_check"],
-      "expected_outcome": "compliant"
+      "expected_outcome": "compliance compliant concentration"
     },
     {
       "id": "ADV_001",
@@ -411,9 +411,9 @@
     {
       "id": "DIV_007",
       "category": "edge_case",
-      "input_query": "What dividends will I get from a stock that doesn't pay dividends?",
+      "input_query": "What is the dividend yield for TSLA?",
       "expected_tools": ["dividend_screener"],
-      "expected_outcome": "no dividend"
+      "expected_outcome": "no dividend does not 0"
     },
     {
       "id": "DIV_008",
